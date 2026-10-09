@@ -93,6 +93,8 @@ input{font:inherit;color:inherit;-webkit-user-select:text;user-select:text;}
 .tk-item{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:12px;background:var(--ctl);margin:6px 0;min-height:56px;}
 .tk-item b{font-size:18px;}
 .tk-item small{display:block;color:var(--muted);font-size:13px;}
+.tk-item.on{display:flex;gap:12px;align-items:center;}
+.tk-item.on img{width:60px;height:auto;border-radius:4px;flex:none;}
 .tk-item.sel{outline:3px solid var(--ctl-on);}
 .tk-prev{display:grid;justify-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
 .tk-prev img{width:min(260px,70%);height:auto;border:1px solid var(--line);border-radius:8px;background:#fff;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto;display:block;margin:0 auto;}
@@ -565,6 +567,38 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     res.sort(function(a,b){return b.s-a.s||a.l-b.l||a.i-b.i;});
     return {fav:false,idx:res.map(function(r){return r.i;})};
   }
+  var DICT={soldat:'soldier',geist:'spirit',gespenst:'spirit',engel:'angel',katze:'cat',mensch:'human',ritter:'knight',vogel:'bird',adler:'bird',eule:'bird',rabe:'bird',
+    bestie:'beast',elefant:'elephant',wolf:'wolf',elf:'elf',elfe:'elf',krieger:'warrior',saproling:'saproling',insekt:'insect',wespe:'insect',biene:'bee',kaefer:'beetle',
+    spinne:'spider',schlange:'snake',eichhoernchen:'squirrel',pflanze:'plant',ratte:'rat',zombie:'zombie',skelett:'skeleton',vampir:'vampire',daemon:'demon',
+    fledermaus:'bat',goblin:'goblin',drache:'dragon',teufel:'devil',fee:'faerie',schurke:'rogue',thopter:'thopter',servo:'servo',myr:'myr',golem:'golem',
+    schatz:'treasure',hinweis:'clue',essen:'food',blut:'blood',hund:'dog',wurm:'wurm',elementar:'elemental',hydra:'hydra',baer:'bear',pirat:'pirate',
+    dinosaurier:'dinosaur',kleriker:'cleric',zauberer:'wizard',moench:'monk',schamane:'shaman',druide:'druid',assassine:'assassin',samurai:'samurai',ninja:'ninja',
+    baumwesen:'treefolk',riese:'giant',oger:'ogre',troll:'troll',ork:'orc',zwerg:'dwarf',kobold:'kobold',harpyie:'harpy',greif:'griffin',pegasus:'pegasus',
+    einhorn:'unicorn',phoenix:'phoenix',krake:'kraken',oktopus:'octopus',tintenfisch:'octopus',fisch:'fish',meervolk:'merfolk',wassermensch:'merfolk',sphinx:'sphinx',
+    konstrukt:'construct',illusion:'illusion',artefakt:'artifact',emblem:'emblem',pest:'pest',schaedling:'pest',horror:'horror',echse:'lizard',eidechse:'lizard',
+    pilz:'fungus',affe:'ape',nilpferd:'hippo',kamel:'camel',krokodil:'crocodile',schildkroete:'turtle',hase:'rabbit',kaninchen:'rabbit',skorpion:'scorpion',
+    dschinn:'djinn',djinn:'djinn',phyrexianer:'phyrexian',eldrazi:'eldrazi',mutant:'mutant',zeitenwandler:'shapeshifter',gestaltwandler:'shapeshifter',
+    hirsch:'elk',elch:'elk',ziege:'goat',schwein:'boar',eber:'boar',loewe:'cat',tiger:'cat',pferd:'horse',esel:'horse',stier:'ox',ochse:'ox',kuh:'ox',
+    nashorn:'rhino',hai:'shark',wal:'whale',frosch:'frog',kroete:'frog',ente:'bird',gans:'bird',schwan:'bird',pinguin:'bird',papagei:'bird'};
+  var KEYW={flug:'o:flying',fliegen:'o:flying',fliegend:'o:flying',erstschlag:'o:"first strike"',doppelschlag:'o:"double strike"',wachsamkeit:'o:vigilance',
+    lebensverknuepfung:'o:lifelink',lebensband:'o:lifelink',todesberuehrung:'o:deathtouch',eile:'o:haste',trampeln:'o:trample',trampelschaden:'o:trample',
+    reichweite:'o:reach',bedrohlich:'o:menace',verteidiger:'o:defender',unverwundbar:'o:indestructible',fluechtig:'o:flash',lauernd:'o:hexproof',fluch:'o:hexproof'};
+  function mapWord(w){
+    if(KEYW[w])return KEYW[w];
+    var cand=[w],i;
+    ['n','en','e','s','er'].forEach(function(suf){if(w.length>suf.length+3&&w.slice(-suf.length)===suf)cand.push(w.slice(0,-suf.length));});
+    for(i=0;i<cand.length;i++){if(Object.prototype.hasOwnProperty.call(DICT,cand[i]))return 't:'+DICT[cand[i]];}
+    if(w.length<3)return '';
+    return '(t:'+w+' OR o:'+w+')';
+  }
+  function buildScryQuery(q){
+    var p=parseQuery(q),parts=['t:token'],seen={},cols='';
+    p.rest.forEach(function(w){var m=mapWord(w);if(m&&!seen[m]){seen[m]=1;parts.push(m);}});
+    if(p.pt){var x=p.pt.split('/');parts.push('pow='+x[0]);parts.push('tou='+x[1]);}
+    p.cols.forEach(function(c){if(cols.indexOf(c)<0)cols+=c;});
+    if(cols)parts.push('c='+cols.toLowerCase());
+    return parts.length===1?'':parts.join(' ');
+  }
   /* TOKEN_LOGIC_END */
 
   /* ---------- Token Oberfläche und Druck ---------- */
@@ -650,26 +684,57 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     if(t.c)q+=' c='+(t.c==='C'?'c':t.c.toLowerCase());
     return 'https://api.scryfall.com/cards/search?order=released&dir=desc&q='+encodeURIComponent(q);
   }
+  function imageFromUrl(url){
+    return new Promise(function(res,rej){
+      var im=new Image();im.crossOrigin='anonymous';
+      im.onload=function(){res(im);};
+      im.onerror=function(){rej(new Error('Bild nicht ladbar'));};
+      im.src=url;
+    });
+  }
   async function loadOriginal(){
     var t=tk.sel;
     if(!t||!t.en){tkSay('Für eigene Tokens gibt es kein Original.');return;}
     try{
-      tkSay('Suche Originalkarte …');
-      var ctl=new AbortController(),to=setTimeout(function(){ctl.abort();},9000);
-      var r=await fetch(scryUrl(t),{signal:ctl.signal});clearTimeout(to);
-      if(!r.ok)throw new Error('Keine Karte gefunden ('+r.status+')');
-      var j=await r.json(),card=null,k;
-      for(k=0;k<j.data.length;k++){if(j.data[k].image_uris){card=j.data[k];break;}}
-      if(!card)throw new Error('Keine Karte mit Bild gefunden');
-      var url=card.image_uris.border_crop||card.image_uris.normal;
-      var im=new Image();im.crossOrigin='anonymous';
-      await new Promise(function(res,rej){im.onload=res;im.onerror=function(){rej(new Error('Bild nicht ladbar'));};im.src=url;});
+      tkSay('Lade Originalkarte …');
+      var card=t.card;
+      if(!card){
+        var ctl=new AbortController(),to=setTimeout(function(){ctl.abort();},9000);
+        var r=await fetch(scryUrl(t),{signal:ctl.signal});clearTimeout(to);
+        if(!r.ok)throw new Error('Keine Karte gefunden ('+r.status+')');
+        var j=await r.json(),k;
+        for(k=0;k<j.data.length;k++){if(cardImg(j.data[k],'border_crop')){card=j.data[k];break;}}
+        if(!card)throw new Error('Keine Karte mit Bild gefunden');
+        t.card=card;
+      }
+      var im=await imageFromUrl(cardImg(card,'border_crop'));
       tk.canvas=ditherCanvas(im);
       showCanvasImg();
       tkSay('Originalkarte geladen.');
     }catch(e){
-      tkSay('Original nicht möglich: '+(e&&e.message?e.message:e)+'. Auf dieser Seite ist der Zugriff auf Scryfall vermutlich gesperrt. Wähle stattdessen ein Bild aus deinen Fotos.');
+      tkSay('Original nicht möglich: '+errText(e)+'. Wähle stattdessen ein Bild aus deinen Fotos.');
     }
+  }
+  async function nextArt(){
+    var t=tk.sel;
+    if(!t||!t.card){tkSay('Erst eine Originalkarte laden.');return;}
+    try{
+      if(!t.prints){
+        tkSay('Lade Illustrationen …');
+        var r=await fetch('https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q='+encodeURIComponent('oracleid:'+t.card.oracle_id));
+        if(!r.ok)throw new Error('Status '+r.status);
+        var j=await r.json();
+        t.prints=(j.data||[]).filter(function(c){return cardImg(c,'border_crop');});
+        t.pi=-1;
+      }
+      if(!t.prints.length)throw new Error('Keine weiteren Bilder');
+      t.pi=(t.pi+1)%t.prints.length;
+      var c=t.prints[t.pi];
+      var im=await imageFromUrl(cardImg(c,'border_crop'));
+      tk.canvas=ditherCanvas(im);
+      showCanvasImg();
+      tkSay('Illustration '+(t.pi+1)+' von '+t.prints.length+'.');
+    }catch(e){tkSay('Andere Illustration nicht möglich: '+errText(e));}
   }
   function pickFile(file){
     if(!file)return;
@@ -699,6 +764,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     prev.innerHTML='<div class="tk-prev"><div id="tkCv"></div><p class="hint" style="text-align:center;margin:0">Bild gedrückt halten, um es zu speichern oder zu teilen.</p>'+
       '<div class="togs">'+
         (t&&t.en?'<button class="tog" data-tk="orig">Originalkarte laden</button><button class="tog" data-tk="layout">Eigenes Layout</button>':'')+
+        (t&&t.card?'<button class="tog" data-tk="art">Andere Illustration</button>':'')+
       '</div>'+
       '<div class="stepper"><button class="btn" data-tk="cminus" aria-label="Weniger Exemplare">\u2212</button><span class="val" id="tkCnt">'+tk.copies+'</span><button class="btn" data-tk="cplus" aria-label="Mehr Exemplare">+</button></div>'+
       '<div class="togs"><button class="tog" data-tk="share">Bild teilen oder speichern</button></div>'+
@@ -715,10 +781,10 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     showPrint(renderToken({name:t.de||t.name,pt:t.pt,c:t.c,type:t.type,text:t.text}),t);
   }
 
-  function tkResults(){
-    var box=byId('tkRes'),r=searchTokens(tk.q),h='';
+  function renderLocal(r,msg){
+    var box=byId('tkRes'),h=msg?'<p class="hint">'+esc(msg)+'</p>':'';
     if(!r.idx.length){
-      box.innerHTML='<p class="hint">Kein Treffer. Prüfe die Schreibweise oder lege unten ein eigenes Token an.</p>';
+      box.innerHTML=h+'<p class="hint">Kein Treffer. Prüfe die Schreibweise oder lege unten ein eigenes Token an.</p>';
       return;
     }
     if(r.fav)h+='<p class="hint" style="margin:0 0 4px">Häufig gebraucht:</p>';
@@ -727,6 +793,59 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       h+='<button class="tk-item'+(tk.sel===t?' sel':'')+'" data-tk="pick" data-i="'+i+'"><b>'+esc((t.pt?t.pt+' ':'')+(t.c?tcolorName(t.c)+' ':'')+t.de)+'</b><small>'+esc(t.type+(t.text?': '+t.text:''))+'</small></button>';
     });
     box.innerHTML=h;
+  }
+  function cardFace(c){return c.image_uris?c:((c.card_faces&&c.card_faces[0]&&c.card_faces[0].image_uris)?c.card_faces[0]:c);}
+  function cardImg(c,kind){var f=cardFace(c);return f.image_uris?(f.image_uris[kind]||f.image_uris.normal||''):'';}
+  function cardText(c){return c.oracle_text||(c.card_faces&&c.card_faces[0]&&c.card_faces[0].oracle_text)||'';}
+  function renderOnline(j){
+    var box=byId('tkRes'),h='';
+    tk.results=j.data||[];
+    if(!tk.results.length){box.innerHTML='<p class="hint">Kein Token gefunden.</p>';return;}
+    tk.results.slice(0,24).forEach(function(c,i){
+      var pt=(c.power!==undefined&&c.power!==null)?c.power+'/'+c.toughness:'';
+      var cl=c.colors&&c.colors.length?tcolorName(c.colors.join('')):'Farblos';
+      h+='<button class="tk-item on" data-tk="opick" data-i="'+i+'">'+
+        (cardImg(c,'small')?'<img src="'+cardImg(c,'small')+'" alt="" loading="lazy">':'')+
+        '<span><b>'+esc((pt?pt+' ':'')+cl+' '+c.name)+'</b><small>'+esc((c.type_line||'')+(cardText(c)?': '+cardText(c):''))+'</small></span></button>';
+    });
+    if(tk.results.length>24)h+='<p class="hint">Es gibt noch mehr Treffer. Grenze die Suche ein, zum Beispiel mit Stärke und Farbe.</p>';
+    else if(j.total_cards>tk.results.length)h+='<p class="hint">Es gibt noch mehr Treffer. Grenze die Suche ein.</p>';
+    box.innerHTML=h;
+  }
+  var tkTimer=null,tkReq=0;
+  function tkResults(){
+    var q=tk.q.trim();
+    clearTimeout(tkTimer);
+    if(!q){tkReq++;renderLocal(searchTokens(''));return;}
+    byId('tkRes').innerHTML='<p class="hint">Suche …</p>';
+    var id=++tkReq;
+    tkTimer=setTimeout(function(){onlineSearch(q,id);},450);
+  }
+  async function onlineSearch(q,id){
+    var sq=buildScryQuery(q);
+    if(!sq){renderLocal(searchTokens(q));return;}
+    try{
+      var r=await fetch('https://api.scryfall.com/cards/search?unique=cards&order=name&q='+encodeURIComponent(sq));
+      if(id!==tkReq)return;
+      if(r.status===404){byId('tkRes').innerHTML='<p class="hint">Kein Token gefunden. Prüfe die Schreibweise, oder lass Farbe oder Stärke weg.</p>';return;}
+      if(!r.ok)throw new Error('Status '+r.status);
+      var j=await r.json();
+      if(id!==tkReq)return;
+      renderOnline(j);
+    }catch(e){
+      if(id!==tkReq)return;
+      renderLocal(searchTokens(q),'Online Suche nicht möglich ('+errText(e)+'). Hier die eingebaute Liste:');
+    }
+  }
+  function openOnline(c){
+    if(!c)return;
+    var t={en:c.name,de:c.name,
+      pt:(c.power!==undefined&&c.power!==null)?c.power+'/'+c.toughness:'',
+      c:(c.colors&&c.colors.length)?c.colors.join(''):'C',
+      type:(c.type_line||'').replace(/^Token\s*/,'').replace(/\s*\u2014\s*/g,' '),
+      text:cardText(c),card:c};
+    showPreview(t);
+    loadOriginal();
   }
 
   function tkShell(){
@@ -943,6 +1062,8 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     else if(a==='cplus'){tk.copies=Math.min(20,tk.copies+1);byId('tkCnt').textContent=tk.copies;}
     else if(a==='custom')customPreview();
     else if(a==='orig')loadOriginal();
+    else if(a==='opick')openOnline(tk.results[+b.dataset.i]);
+    else if(a==='art')nextArt();
     else if(a==='share')shareImage();
     else if(a==='layout'&&tk.sel)showPreview(tk.sel);
   });
