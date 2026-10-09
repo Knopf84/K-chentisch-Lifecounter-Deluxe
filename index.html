@@ -95,6 +95,7 @@ input{font:inherit;color:inherit;-webkit-user-select:text;user-select:text;}
 .tk-item small{display:block;color:var(--muted);font-size:13px;}
 .tk-item.sel{outline:3px solid var(--ctl-on);}
 .tk-prev{display:grid;justify-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);}
+.tk-prev img{width:min(260px,70%);height:auto;border:1px solid var(--line);border-radius:8px;background:#fff;-webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto;display:block;margin:0 auto;}
 .tk-prev canvas{width:min(260px,70%);height:auto;border:1px solid var(--line);border-radius:8px;background:#fff;}
 .tk-st{font-size:14px;color:var(--muted);text-align:left;min-height:1.4em;white-space:pre-wrap;width:100%;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;}
 details.tk-c{margin-top:14px;border-top:1px solid var(--line);padding-top:6px;}
@@ -664,7 +665,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       var im=new Image();im.crossOrigin='anonymous';
       await new Promise(function(res,rej){im.onload=res;im.onerror=function(){rej(new Error('Bild nicht ladbar'));};im.src=url;});
       tk.canvas=ditherCanvas(im);
-      byId('tkCv').innerHTML='';byId('tkCv').appendChild(tk.canvas);
+      showCanvasImg();
       tkSay('Originalkarte geladen.');
     }catch(e){
       tkSay('Original nicht möglich: '+(e&&e.message?e.message:e)+'. Auf dieser Seite ist der Zugriff auf Scryfall vermutlich gesperrt. Wähle stattdessen ein Bild aus deinen Fotos.');
@@ -685,10 +686,17 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     im.src=url;
   }
 
+  function showCanvasImg(){
+    var box=byId('tkCv');box.innerHTML='';
+    var im=new Image();
+    im.alt='Vorschau';
+    im.src=tk.canvas.toDataURL('image/png');
+    box.appendChild(im);
+  }
   function showPrint(canvas,t){
     tk.sel=t;tk.canvas=canvas;
     var prev=byId('tkPrev');
-    prev.innerHTML='<div class="tk-prev"><div id="tkCv"></div>'+
+    prev.innerHTML='<div class="tk-prev"><div id="tkCv"></div><p class="hint" style="text-align:center;margin:0">Bild gedrückt halten, um es zu speichern oder zu teilen.</p>'+
       '<div class="togs">'+
         (t&&t.en?'<button class="tog" data-tk="orig">Originalkarte laden</button><button class="tog" data-tk="layout">Eigenes Layout</button>':'')+
       '</div>'+
@@ -697,7 +705,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       '<label style="width:100%;font-size:14px;color:var(--muted)">Befehlsfolge<select id="tkProf"><option value="A">Profil A</option><option value="B">Profil B</option></select></label>'+
       '<button class="btn primary" style="width:100%" data-tk="print">Drucken</button>'+
       '<div class="tk-st" id="tkSt" aria-live="polite">'+(pChr?'Drucker verbunden.':'Drucker noch nicht verbunden.')+'</div></div>';
-    byId('tkCv').appendChild(canvas);
+    showCanvasImg();
     byId('tkProf').value=S.prof||'A';
     prev.scrollIntoView({block:'nearest'});
   }
@@ -770,17 +778,47 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
 
   /* Drucker: Web Bluetooth, Phomemo M110 */
   function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
-  function errText(e){return (e&&e.name?e.name+' ':'')+(e&&e.message!==undefined?e.message:e);}
+  function errText(e){
+    if(e===null||e===undefined)return 'unbekannt';
+    if(typeof e!=='object')return 'Wert '+String(e)+' ('+typeof e+')';
+    var p=[];
+    if(e.name)p.push(e.name);
+    if(e.message!==undefined&&e.message!=='')p.push(String(e.message));
+    if(e.code!==undefined)p.push('Code '+e.code);
+    if(!p.length){try{p.push(JSON.stringify(e));}catch(x){p.push(String(e));}}
+    return p.join(' ');
+  }
   function tkAdd(t){var el=byId('tkSt');if(el)el.textContent+=(el.textContent?'\n':'')+t;}
+  var UUID_FF00='0000ff00-0000-1000-8000-00805f9b34fb';
   async function pConnect(all){
     var stage='Start';
     try{
       if(!navigator.bluetooth){tkSay('Dieser Browser kann kein Bluetooth. Öffne die Seite in Bluefy.');return;}
-      var opts=all?{acceptAllDevices:true}:{filters:[{namePrefix:'M110'}]};
-      opts.optionalServices=[0xff00,0xff80,'e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455'];
+      tkSay('Sichere Verbindung: '+(window.isSecureContext?'ja':'nein'));
+      try{
+        if(navigator.bluetooth.getAvailability){tkAdd('Bluetooth verfügbar: '+(await navigator.bluetooth.getAvailability()));}
+      }catch(ea){tkAdd('Verfügbarkeit nicht abfragbar: '+errText(ea));}
+      var attempts=all?[
+        {l:'alle Geräte',o:{acceptAllDevices:true,optionalServices:[UUID_FF00]}},
+        {l:'alle Geräte ohne Dienste',o:{acceptAllDevices:true}},
+        {l:'Namensfilter',o:{filters:[{namePrefix:'M110'}],optionalServices:[UUID_FF00]}}
+      ]:[
+        {l:'Namensfilter',o:{filters:[{namePrefix:'M110'}],optionalServices:[UUID_FF00]}},
+        {l:'alle Geräte',o:{acceptAllDevices:true,optionalServices:[UUID_FF00]}},
+        {l:'alle Geräte ohne Dienste',o:{acceptAllDevices:true}}
+      ];
       stage='Auswahl';
-      tkSay('Suche Drucker …');
-      pDev=await navigator.bluetooth.requestDevice(opts);
+      var i;pDev=null;
+      for(i=0;i<attempts.length&&!pDev;i++){
+        tkAdd('Versuch '+(i+1)+': '+attempts[i].l);
+        try{
+          pDev=await navigator.bluetooth.requestDevice(attempts[i].o);
+        }catch(er){
+          tkAdd('  Fehler: '+errText(er));
+          if(er&&er.name==='NotFoundError'){tkAdd('Nichts ausgewählt oder kein Gerät gefunden.');return;}
+        }
+      }
+      if(!pDev){tkAdd('Kein Versuch hat ein Auswahlfenster geöffnet.');return;}
       tkAdd('Gewählt: '+(pDev.name||'ohne Namen'));
       stage='Verbindung';
       var server;
@@ -791,7 +829,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       stage='Dienste';
       var chars=[],svc,k;
       try{
-        svc=await server.getPrimaryService(0xff00);
+        svc=await server.getPrimaryService(UUID_FF00);
         tkAdd('Dienst FF00 gefunden.');
         chars=await svc.getCharacteristics();
       }catch(e2){
