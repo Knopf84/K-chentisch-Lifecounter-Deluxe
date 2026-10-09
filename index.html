@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lebenspunkte">
 <title>Lebenspunkte</title>
 <style>
 :root{
@@ -1082,7 +1086,18 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
        '<button class="tog'+(S.seat!=='seite'?' on':'')+'" data-act="seatset" data-k="rund">Rundum</button>'+
        '<button class="tog'+(S.seat==='seite'?' on':'')+'" data-act="seatset" data-k="seite">Seitlich</button></div>';
     h+='<h2>Display</h2><div class="togs"><button class="tog'+(S.awake!==false&&wl?' on':'')+'" data-act="awake">Display wach halten: '+awakeLabel()+'</button></div>';
+    var fsOn=!!(document.fullscreenElement||document.webkitFullscreenElement);
+    h+='<h2>Vollbild</h2><div class="togs"><button class="tog'+(fsOn?' on':'')+'" data-act="fs">'+(fsOn?'Vollbild beenden':'Vollbild starten')+'</button></div>';
     h+='<h2>Tag oder Nacht</h2><div class="togs"><button class="tog'+(S.day?' on':'')+'" data-act="day">'+(S.day||'aus')+' (tippen zum Wechseln)</button></div>';
+    sheet.innerHTML=h;
+  }
+  function fsInfoSheet(){
+    sheet.style.setProperty('--c','#888');
+    var h='<div class="sh-head"><h2 style="margin:0;font-size:22px;flex:1">Vollbild</h2><button class="btn primary" data-act="close">Fertig</button></div>';
+    h+='<p style="margin:0 0 10px">Dieser Browser erlaubt den Vollbildmodus per Knopf nicht. Das geht trotzdem auf anderen Wegen:</p>';
+    h+='<p style="margin:0 0 8px"><strong>In Safari:</strong> Tippe links in der Adresszeile auf „aA“ und wähle „Symbolleiste ausblenden“.</p>';
+    h+='<p style="margin:0 0 8px"><strong>Als eigene App:</strong> In Safari auf Teilen tippen und „Zum Home Bildschirm“ wählen. Von dort gestartet gibt es keine Adresszeile. Dort funktioniert allerdings kein Bluetooth, zum Drucken brauchst du also weiter Bluefy, und der Spielstand liegt in beiden getrennt.</p>';
+    h+='<p class="hint">In Bluefy kann ich nicht sagen, ob es eine Einstellung für die Leisten gibt. Schau im Menü des Browsers nach.</p>';
     sheet.innerHTML=h;
   }
   function infoSheet(){
@@ -1109,8 +1124,8 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
   function renderSheet(){
     if(!sheetState)return;
     var top=sheet.scrollTop;
-    sheet.className='sheet'+(sheetState.t==='c'||sheetState.t==='d'||sheetState.t==='i'||sheetState.t==='m'?' small':'');
-    if(sheetState.t==='p')playerSheet(sheetState.i);else if(sheetState.t==='c')cellSheet(sheetState.i,sheetState.j);else if(sheetState.t==='d')diceSheet();else if(sheetState.t==='i')infoSheet();else if(sheetState.t==='m')moreSheet();else if(sheetState.t==='tk'){if(!sheetState.built){sheetState.built=true;tkShell();}}else newSheet();
+    sheet.className='sheet'+(sheetState.t==='c'||sheetState.t==='d'||sheetState.t==='i'||sheetState.t==='m'||sheetState.t==='f'?' small':'');
+    if(sheetState.t==='p')playerSheet(sheetState.i);else if(sheetState.t==='c')cellSheet(sheetState.i,sheetState.j);else if(sheetState.t==='d')diceSheet();else if(sheetState.t==='i')infoSheet();else if(sheetState.t==='m')moreSheet();else if(sheetState.t==='f')fsInfoSheet();else if(sheetState.t==='tk'){if(!sheetState.built){sheetState.built=true;tkShell();}}else newSheet();
     sheet.scrollTop=top;
   }
   function openSheet(st){
@@ -1178,6 +1193,22 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       case 'more':openSheet({t:'m'});return;
       case 'turn':p.turn=d===0?0:((p.turn||0)+d+360)%360;break;
       case 'tokens':tk.q='';tk.sel=null;tk.canvas=null;openSheet({t:'tk'});return;
+      case 'fs':
+        var fel=document.documentElement,fen=document.fullscreenElement||document.webkitFullscreenElement;
+        if(fen){
+          var ex=document.exitFullscreen||document.webkitExitFullscreen;
+          if(ex){try{ex.call(document);}catch(e0){}}
+          closeSheet();
+        }else{
+          var rq=fel.requestFullscreen||fel.webkitRequestFullscreen;
+          if(!rq){openSheet({t:'f'});return;}
+          try{
+            var pr=rq.call(fel);
+            if(pr&&pr.catch)pr.catch(function(){openSheet({t:'f'});});
+          }catch(e1){openSheet({t:'f'});return;}
+          closeSheet();
+        }
+        return;
       case 'awake':
         if(awakeState==='nein'||awakeState==='fehler'){openSheet({t:'i'});return;}
         S.awake=!(S.awake!==false);
