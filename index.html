@@ -7,6 +7,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Lebenspunkte">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&display=swap">
 <title>Lebenspunkte</title>
 <style>
 :root{
@@ -203,9 +206,41 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
 .primary{background:var(--ctl-on);color:var(--ctl-on-text);}
 :focus-visible{outline:3px solid #2f6db0;outline-offset:2px;}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;}}
+
+/* Magic Flair */
+.board{background:radial-gradient(circle at 12% 14%,rgba(248,244,222,.07),transparent 38%),radial-gradient(circle at 88% 14%,rgba(14,104,171,.10),transparent 38%),radial-gradient(circle at 88% 86%,rgba(211,32,42,.10),transparent 38%),radial-gradient(circle at 12% 86%,rgba(0,115,62,.10),transparent 38%),radial-gradient(circle at 50% 50%,rgba(90,55,130,.14),transparent 55%),#050507;}
+.rot{box-shadow:inset 0 0 0 3px rgba(22,15,6,.6),inset 0 0 0 5px rgba(255,255,255,.35);}
+.rot.start{box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 7px rgba(22,15,6,.7);}
+.pill,.rot.dk .pill{background:linear-gradient(180deg,#f4ecd5,#d9cba6);color:#2a2012;border:2px solid rgba(40,28,10,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 1px 2px rgba(0,0,0,.4);font-family:"Cinzel","Palatino Linotype",Palatino,Georgia,serif;font-weight:700;letter-spacing:.02em;}
+.pill .grip{opacity:.55;}
+.bar{background:linear-gradient(180deg,#1c1a24,#121118);border-bottom:2px solid #8a6d2f;}
+.bar .btn{background:linear-gradient(180deg,#2e2b3a,#211f2b);color:#ead9a8;border:1px solid #7a6030;font-family:"Cinzel","Palatino Linotype",Palatino,Georgia,serif;font-weight:700;font-size:13px;letter-spacing:.03em;}
+.bar .btn:active{filter:brightness(1.25);}
+.sheet h2,.sh-head h2{font-family:"Cinzel","Palatino Linotype",Palatino,Georgia,serif;letter-spacing:.03em;}
+.manarow{display:flex;gap:4px;margin-right:8px;}
+@media (max-width:480px){.manarow{display:none;}}
+.mana{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;width:var(--s,22px);height:var(--s,22px);flex:none;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.45),0 1px 1px rgba(0,0,0,.3);}
+.mana svg{width:68%;height:68%;fill:currentColor;}
+.mana.W{background:#f8f4dc;color:#6a5a28;}
+.mana.U{background:#b9d6ef;color:#0b3a66;}
+.mana.B{background:#c1b8b4;color:#1a1410;}
+.mana.R{background:#f2b49a;color:#7c1b06;}
+.mana.G{background:#a7d4ae;color:#0d3f1f;}
+.pill .mana{--s:24px;}
+.wm{position:absolute;left:50%;top:50%;height:60%;height:min(64cqh,34cqw);aspect-ratio:1;transform:translate(-50%,-50%);fill:currentColor;opacity:.09;pointer-events:none;}
+.life,.zone{position:relative;z-index:1;}
+.sw .mana{--s:20px;margin-right:6px;}
+.legal{font-size:12px;color:var(--muted);margin:16px 0 0;line-height:1.4;}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="m-W" viewBox="0 0 32 32"><circle cx="16" cy="16" r="6"/><g stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="25" y1="16" x2="29.5" y2="16"/><line x1="22.4" y1="22.4" x2="25.6" y2="25.6"/><line x1="16" y1="25" x2="16" y2="29.5"/><line x1="9.6" y1="22.4" x2="6.4" y2="25.6"/><line x1="7" y1="16" x2="2.5" y2="16"/><line x1="9.6" y1="9.6" x2="6.4" y2="6.4"/><line x1="16" y1="7" x2="16" y2="2.5"/><line x1="22.4" y1="9.6" x2="25.6" y2="6.4"/></g></symbol>
+<symbol id="m-U" viewBox="0 0 32 32"><path d="M16 3C16 3 7 13.5 7 20a9 9 0 0 0 18 0C25 13.5 16 3 16 3Z"/></symbol>
+<symbol id="m-B" viewBox="0 0 32 32"><path fill-rule="evenodd" d="M16 4C9.4 4 5 8.6 5 14.2c0 3.3 1.6 5.5 4 7V26h4v-3h2v3h2v-3h2v3h4v-4.8c2.4-1.5 4-3.7 4-7C27 8.6 22.6 4 16 4ZM11.5 12.2a2.8 2.8 0 1 0 .01 0ZM20.5 12.2a2.8 2.8 0 1 0 .01 0ZM16 17.5l-1.6 3h3.2Z"/></symbol>
+<symbol id="m-R" viewBox="0 0 32 32"><path d="M16 3C17.2 8.4 22.5 10.6 22.5 17.6a6.5 6.5 0 0 1-13 0c0-2.8 1.3-4.4 2.6-5.9.3 2.1 1.4 3 2.7 3.2C14 12 14.6 7 16 3Z"/></symbol>
+<symbol id="m-G" viewBox="0 0 32 32"><circle cx="16" cy="11" r="7"/><circle cx="10.2" cy="16.5" r="5.5"/><circle cx="21.8" cy="16.5" r="5.5"/><path d="M14 18h4l1 10h-6z"/></symbol>
+</defs></svg>
 <div id="app">
   <div class="bar">
     <button class="btn" data-act="new">Neues Spiel</button>
@@ -282,6 +317,14 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
   var overlay=document.getElementById('overlay');
   var sheet=document.getElementById('sheet');
 
+  var MANA={weiss:'W',blau:'U',schwarz:'B',rot:'R',gruen:'G'};
+  function manaBadge(l,size){
+    if(!l)return '';
+    return '<span class="mana '+l+'"'+(size?' style="--s:'+size+'px"':'')+' aria-hidden="true"><svg viewBox="0 0 32 32"><use href="#m-'+l+'"/></svg></span>';
+  }
+  function manaRow(){
+    return '<span class="manarow" aria-hidden="true">'+['W','U','B','R','G'].map(function(l){return manaBadge(l,22);}).join('')+'</span>';
+  }
   function esc(t){return String(t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function mix(hex,t){
     var r=parseInt(hex.substr(1,2),16),g=parseInt(hex.substr(3,2),16),b=parseInt(hex.substr(5,2),16);
@@ -359,8 +402,8 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     var st=layout(S.count,isPortrait()).s[i],rr=(st[4]+(p.turn||0))%360;
     return '<section class="tile r'+rr+'" style="grid-row:'+st[0]+' / span '+st[2]+';grid-column:'+st[1]+' / span '+st[3]+'">'+
       '<div class="rot'+(out?' out':'')+(c.dk?' dk':'')+(isStart?' start':'')+'" style="--c1:'+c.c1+';--c2:'+c.c2+';--f:'+c.fg+'"><div class="card">'+
-      '<div class="pillrow"><button class="pill" data-act="open" data-i="'+i+'" aria-label="Menü für '+esc(nm(p,i))+' öffnen"><span class="nm">'+esc(nm(p,i))+'</span><span class="grip" aria-hidden="true"></span></button></div>'+
-      '<div class="mid">'+
+      '<div class="pillrow"><button class="pill" data-act="open" data-i="'+i+'" aria-label="Menü für '+esc(nm(p,i))+' öffnen">'+manaBadge(MANA[p.color])+'<span class="nm">'+esc(nm(p,i))+'</span><span class="grip" aria-hidden="true"></span></button></div>'+
+      '<div class="mid">'+(MANA[p.color]?'<svg class="wm" viewBox="0 0 32 32" aria-hidden="true"><use href="#m-'+MANA[p.color]+'"/></svg>':'')+
         '<button class="zone l" data-act="zlife" data-i="'+i+'" data-d="-1" aria-label="Ein Lebenspunkt weniger">\u2212</button>'+
         '<div class="life" aria-live="polite">'+fmt(p.life)+'</div>'+
         '<button class="zone r" data-act="zlife" data-i="'+i+'" data-d="1" aria-label="Ein Lebenspunkt mehr">+</button>'+
@@ -410,7 +453,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     h+='<h2>Farbe</h2><div class="swatches">';
     Object.keys(COLORS).forEach(function(k){
       var cc=COLORS[k];
-      h+='<button class="sw'+(p.color===k?' sel':'')+'" data-act="color" data-i="'+i+'" data-k="'+k+'" style="background:linear-gradient(135deg,'+cc.c1+','+cc.c2+');color:#111">'+cc.n+'</button>';
+      h+='<button class="sw'+(p.color===k?' sel':'')+'" data-act="color" data-i="'+i+'" data-k="'+k+'" style="background:linear-gradient(135deg,'+cc.c1+','+cc.c2+');color:#111">'+manaBadge(MANA[k])+cc.n+'</button>';
     });
     var custom=p.color.charAt(0)==='#';
     h+='<label class="sw'+(custom?' sel':'')+'" style="margin-top:8px;width:100%;background:var(--ctl);color:var(--text);gap:10px;cursor:pointer"><span class="dot" style="width:24px;height:24px;background:'+(custom?p.color:c.c1)+'"></span>Eigene Farbe wählen<input type="color" data-field="color" data-i="'+i+'" value="'+(custom?p.color:'#2f6db0')+'" style="width:0;height:0;opacity:0;position:absolute"></label>';
@@ -856,10 +899,10 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     sheet.style.setProperty('--c','#888');
     sheet.className='sheet';
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    sheet.innerHTML='<div class="sh-head"><h2 style="margin:0;font-size:24px;flex:1">Tokens</h2><button class="btn primary" data-act="close">Fertig</button></div>'+
-      '<div class="tk-search"><input id="tkq" type="search" placeholder="z. B. 1/1 weißer Soldat" autocomplete="off" autocapitalize="off" autocorrect="off" enterkeyhint="search" aria-label="Token suchen">'+
+    sheet.innerHTML='<div class="sh-head"><h2 style="margin:0;font-size:24px;flex:1">Tokens</h2>'+manaRow()+'<button class="btn primary" data-act="close">Fertig</button></div>'+
+      '<div class="tk-search"><input id="tkq" type="search" lang="de" spellcheck="false" placeholder="z. B. 1/1 weißer Soldat" autocomplete="off" autocapitalize="off" autocorrect="off" enterkeyhint="search" aria-label="Token suchen">'+
       (SR?'<button class="btn" data-tk="mic" id="tkMic">Sprechen</button>':'')+'</div>'+
-      (SR?'':'<p class="hint" style="margin:0 0 6px">Sprechen: Tippe ins Suchfeld und nutze das Mikrofon der iPad Tastatur.</p>')+
+      '<p class="hint" id="tkMicHint" style="margin:0 0 6px"'+(SR?' hidden':'')+'>Sprechen: Tippe ins Suchfeld und dann auf das Mikrofon unten rechts auf der Tastatur.</p>'+
       '<div id="tkRes"></div>'+
       '<div class="togs" style="margin-top:8px"><label class="tog" style="display:inline-flex;align-items:center;cursor:pointer;position:relative">Eigenes Bild drucken<input type="file" accept="image/*" id="tkFile" style="position:absolute;width:0;height:0;opacity:0"></label></div>'+
       '<div id="tkPrev"></div>'+
@@ -869,15 +912,23 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       '<input id="tkCt" placeholder="Typzeile, z. B. Kreatur Ratte" maxlength="40">'+
       '<input id="tkCc" placeholder="Farben als Buchstaben: W U B R G C" maxlength="5">'+
       '<textarea id="tkCx" placeholder="Regeltext"></textarea>'+
-      '<button class="btn" style="width:100%" data-tk="custom">Vorschau erstellen</button></details>';
+      '<button class="btn" style="width:100%" data-tk="custom">Vorschau erstellen</button></details>'+
+      '<p class="legal">Inoffizielles Fan Projekt. Magic: The Gathering ist eine Marke von Wizards of the Coast. Kartendaten und Bilder von Scryfall.</p>';
     byId('tkq').addEventListener('input',function(){tk.q=this.value;tkResults();});
     byId('tkFile').addEventListener('change',function(){pickFile(this.files&&this.files[0]);this.value='';});
     tkResults();
   }
 
+  function micFallback(msg){
+    var btn=byId('tkMic'),h=byId('tkMicHint'),q=byId('tkq');
+    tk.srBad=true;
+    if(btn)btn.textContent='Diktat';
+    if(h){h.hidden=false;h.textContent=msg||'Sprich über das Mikrofon der Tastatur: Tippe ins Suchfeld und dann unten rechts auf das Mikrofon.';}
+    if(q)q.focus();
+  }
   function startMic(){
     var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR)return;
+    if(!SR||tk.srBad){micFallback();return;}
     var btn=byId('tkMic'),rec=new SR();
     rec.lang='de-DE';rec.interimResults=false;rec.maxAlternatives=1;
     btn.textContent='Höre zu …';
@@ -886,12 +937,12 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       byId('tkq').value=tr;tk.q=tr;tkResults();
     };
     rec.onerror=function(e){
-      btn.textContent='Sprechen';
-      var el=byId('tkRes');
-      el.insertAdjacentHTML('afterbegin','<p class="hint">Spracheingabe nicht möglich ('+esc(e.error||'Fehler')+'). Nutze das Mikrofon der Tastatur oder tippe.</p>');
+      var code=e&&e.error?e.error:'Fehler';
+      if(code==='no-speech'||code==='aborted'){btn.textContent='Sprechen';return;}
+      micFallback('Die direkte Spracheingabe geht in diesem Browser nicht ('+code+'). Nimm das Mikrofon der Tastatur: Ins Suchfeld tippen, dann unten rechts auf das Mikrofon.');
     };
-    rec.onend=function(){btn.textContent='Sprechen';};
-    try{rec.start();}catch(err){btn.textContent='Sprechen';}
+    rec.onend=function(){if(!tk.srBad)btn.textContent='Sprechen';};
+    try{rec.start();}catch(err){micFallback();}
   }
 
   function customPreview(){
@@ -1077,7 +1128,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
 
   function moreSheet(){
     sheet.style.setProperty('--c','#888');
-    var h='<div class="sh-head"><h2 style="margin:0;font-size:24px;flex:1">Mehr</h2><button class="btn primary" data-act="close">Fertig</button></div>';
+    var h='<div class="sh-head"><h2 style="margin:0;font-size:24px;flex:1">Mehr</h2>'+manaRow()+'<button class="btn primary" data-act="close">Fertig</button></div>';
     h+='<h2>Spieler</h2><div class="togs">';
     for(var n=2;n<=6;n++)h+='<button class="tog'+(S.count===n?' on':'')+'" data-act="count" data-n="'+n+'">'+n+'</button>';
     h+='</div>';
@@ -1089,6 +1140,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     var fsOn=!!(document.fullscreenElement||document.webkitFullscreenElement);
     h+='<h2>Vollbild</h2><div class="togs"><button class="tog'+(fsOn?' on':'')+'" data-act="fs">'+(fsOn?'Vollbild beenden':'Vollbild starten')+'</button></div>';
     h+='<h2>Tag oder Nacht</h2><div class="togs"><button class="tog'+(S.day?' on':'')+'" data-act="day">'+(S.day||'aus')+' (tippen zum Wechseln)</button></div>';
+    h+='<p class="legal">Inoffizielles Fan Projekt. Magic: The Gathering ist eine Marke von Wizards of the Coast.</p>';
     sheet.innerHTML=h;
   }
   function fsInfoSheet(){
@@ -1111,7 +1163,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
   function newSheet(){
     sheet.style.setProperty('--c','#888');
     var st=sheetState.start,h='';
-    h+='<div class="sh-head"><h2 style="margin:0;font-size:24px">Neues Spiel</h2></div>';
+    h+='<div class="sh-head"><h2 style="margin:0;font-size:24px">Neues Spiel</h2>'+manaRow()+'</div>';
     h+='<p class="hint" style="font-size:16px;margin:0 0 8px">Leben, Marken, Schaden und Zustände aller Spieler werden zurückgesetzt. Namen und Farben bleiben. Wer anfängt, wird ausgelost und auf der Kachel markiert.</p>';
     h+='<h2>Startleben</h2><div class="togs">';
     [20,25,30,40].forEach(function(v){h+='<button class="tog'+(st===v?' on':'')+'" data-act="startset" data-v="'+v+'">'+v+'</button>';});
