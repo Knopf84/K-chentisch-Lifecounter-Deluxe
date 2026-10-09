@@ -701,12 +701,14 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
         (t&&t.en?'<button class="tog" data-tk="orig">Originalkarte laden</button><button class="tog" data-tk="layout">Eigenes Layout</button>':'')+
       '</div>'+
       '<div class="stepper"><button class="btn" data-tk="cminus" aria-label="Weniger Exemplare">\u2212</button><span class="val" id="tkCnt">'+tk.copies+'</span><button class="btn" data-tk="cplus" aria-label="Mehr Exemplare">+</button></div>'+
+      '<div class="togs"><button class="tog" data-tk="share">Bild teilen oder speichern</button></div>'+
       '<div class="togs"><button class="tog" data-tk="conn">Drucker verbinden</button><button class="tog" data-tk="connall">Alle Geräte zeigen</button></div>'+
-      '<label style="width:100%;font-size:14px;color:var(--muted)">Befehlsfolge<select id="tkProf"><option value="A">Profil A: Tempo, Dichte, Abschluss</option><option value="B">Profil B: nur das Bild</option><option value="C">Profil C: Phomemo Stil mit Start und Abschluss</option><option value="D">Profil D: Phomemo Stil mit Papiervorschub</option></select></label>'+
+      '<label style="width:100%;font-size:14px;color:var(--muted)">Papier im Drucker<select id="tkProf"><option value="F">Bonrolle, Endlospapier</option><option value="E">Etiketten mit Lücke</option><option value="M">Etiketten mit schwarzer Markierung</option><option value="B">Nur das Bild, ohne Papierangabe</option></select></label>'+
       '<button class="btn primary" style="width:100%" data-tk="print">Drucken</button>'+
       '<div class="tk-st" id="tkSt" aria-live="polite">'+(pChr?'Drucker verbunden.':'Drucker noch nicht verbunden.')+'</div></div>';
     showCanvasImg();
-    byId('tkProf').value=S.prof||'A';
+    byId('tkProf').value=S.prof||'F';
+    if(!byId('tkProf').value)byId('tkProf').value='F';
     prev.scrollIntoView({block:'nearest'});
   }
   function showPreview(t){
@@ -851,6 +853,19 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       });
       pChr=cand||fb;
       if(!pChr){tkAdd('Keine Schreibschnittstelle gefunden.');return;}
+      for(k=0;k<chars.length;k++){
+        (function(ch){
+          if(!(ch.properties.notify||ch.properties.indicate))return;
+          ch.startNotifications().then(function(){
+            tkAdd('Höre auf Antworten über '+ch.uuid.slice(4,8)+'.');
+            ch.addEventListener('characteristicvaluechanged',function(ev){
+              var v=new Uint8Array(ev.target.value.buffer),o=[],q;
+              for(q=0;q<v.length;q++)o.push(('0'+v[q].toString(16)).slice(-2));
+              tkAdd('Antwort vom Drucker: '+o.join(' '));
+            });
+          }).catch(function(en){tkAdd('Antworten nicht lesbar: '+errText(en));});
+        })(chars[k]);
+      }
       pDev.addEventListener('gattserverdisconnected',function(){pChr=null;tkAdd('Verbindung zum Drucker getrennt.');});
       tkAdd('Bereit zum Drucken über '+pChr.uuid.slice(4,8)+'.');
     }catch(e){
@@ -865,44 +880,56 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     }}
     return out;
   }
+  async function pWrite(bytes){
+    if(pChr.properties.write)await pChr.writeValue(bytes);
+    else await pChr.writeValueWithoutResponse(bytes);
+  }
   async function pSend(bytes,chunk){
-    var withResp=!!pChr.properties.write;
     for(var i=0;i<bytes.length;i+=chunk){
-      var part=bytes.slice(i,i+chunk);
-      if(withResp)await pChr.writeValue(part);
-      else await pChr.writeValueWithoutResponse(part);
-      await new Promise(function(r){setTimeout(r,withResp?2:10);});
+      await pWrite(bytes.slice(i,i+chunk));
+      await sleep(pChr.properties.write?3:10);
     }
   }
-  var PRE={A:[0x1b,0x4e,0x0d,0x05,0x1b,0x4e,0x04,0x08],B:[],C:[0x1b,0x40,0x1b,0x61,0x01,0x1f,0x11,0x02,0x04],D:[0x1b,0x40,0x1b,0x61,0x01,0x1f,0x11,0x02,0x04]};
-  var POST={A:[0x1f,0xf0,0x05,0x00,0x1f,0xf0,0x03,0x00],B:[],C:[0x1f,0xf0,0x05,0x00,0x1f,0xf0,0x03,0x00],D:[0x1b,0x64,0x03]};
-  function buildJob(c,prof){
-    var bpl=c.width/8,H=c.height,img=toBytes(c),parts=[PRE[prof]||[]],y,h;
-    for(y=0;y<H;y+=256){
-      h=Math.min(256,H-y);
-      parts.push([0x1d,0x76,0x30,0x00,bpl&255,bpl>>8,h&255,h>>8]);
-      parts.push(img.subarray(y*bpl,(y+h)*bpl));
-    }
-    parts.push(POST[prof]||[]);
-    var total=0;parts.forEach(function(p){total+=p.length;});
-    var out=new Uint8Array(total),pos=0;
-    parts.forEach(function(p){out.set(p,pos);pos+=p.length;});
-    return out;
-  }
+  /* Phomemo M110: eigene Befehle für Tempo, Dichte und Papiertyp, das ganze Bild als ein einziger Block, danach Abschluss.
+     Papiertyp: 0x0b Endlospapier, 0x0a Etiketten mit Lücke, 0x26 Etiketten mit Markierung. */
+  var MEDIA={F:0x0b,E:0x0a,M:0x26};
   async function tkPrint(){
     if(!tk.canvas)return;
     if(!pChr){tkSay('Erst den Drucker verbinden.');return;}
-    var prof=byId('tkProf').value,job=buildJob(tk.canvas,prof);
+    var prof=byId('tkProf').value,c=tk.canvas,bpl=c.width/8,H=c.height,img=toBytes(c);
+    var block=new Uint8Array(8+img.length);
+    block.set([0x1d,0x76,0x30,0x00,bpl&255,bpl>>8,H&255,H>>8],0);
+    block.set(img,8);
+    var media=MEDIA[prof];
     try{
       for(var n=0;n<tk.copies;n++){
-        tkAdd('Sende Profil '+prof+', Exemplar '+(n+1)+' von '+tk.copies+' ('+job.length+' Byte) …');
-        try{await pSend(job,100);}catch(e1){tkAdd('  Blockgröße 100 ging nicht ('+errText(e1)+'), versuche 20 …');await pSend(job,20);}
-        if(n<tk.copies-1)await new Promise(function(r){setTimeout(r,600);});
+        tkAdd('Sende '+(n+1)+' von '+tk.copies+' ('+H+' Zeilen, Profil '+prof+') …');
+        if(media!==undefined){
+          await pWrite(new Uint8Array([0x1b,0x4e,0x0d,0x05]));await sleep(60);
+          await pWrite(new Uint8Array([0x1b,0x4e,0x04,0x0b]));await sleep(60);
+          await pWrite(new Uint8Array([0x1f,0x11,media]));await sleep(150);
+        }
+        await pSend(block,128);
+        await sleep(500);
+        if(media!==undefined){await pWrite(new Uint8Array([0x1f,0xf0,0x05,0x00,0x1f,0xf0,0x03,0x00]));}
+        if(n<tk.copies-1)await sleep(1500);
       }
-      tkAdd('Fertig gesendet. Kommt nichts heraus, nimm das nächste Profil.');
+      tkAdd('Fertig gesendet. Kommt nichts heraus, probiere ein anderes Profil.');
     }catch(e){tkAdd('Fehler beim Drucken: '+errText(e));}
   }
 
+  function shareImage(){
+    if(!tk.canvas)return;
+    tk.canvas.toBlob(function(blob){
+      if(!blob){tkSay('Bild konnte nicht erzeugt werden.');return;}
+      var file=new File([blob],'token.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){
+        navigator.share({files:[file],title:'Token'}).catch(function(e){if(e&&e.name!=='AbortError')tkSay('Teilen nicht möglich: '+errText(e));});
+      }else{
+        tkSay('Teilen geht in diesem Browser nicht. Halte stattdessen das Bild gedrückt.');
+      }
+    },'image/png');
+  }
   sheet.addEventListener('click',function(e){
     if(!sheetState||sheetState.t!=='tk')return;
     var b=e.target.closest('[data-tk]');if(!b)return;
@@ -916,6 +943,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     else if(a==='cplus'){tk.copies=Math.min(20,tk.copies+1);byId('tkCnt').textContent=tk.copies;}
     else if(a==='custom')customPreview();
     else if(a==='orig')loadOriginal();
+    else if(a==='share')shareImage();
     else if(a==='layout'&&tk.sel)showPreview(tk.sel);
   });
   sheet.addEventListener('change',function(e){
