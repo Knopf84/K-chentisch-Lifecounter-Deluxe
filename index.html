@@ -702,7 +702,7 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
       '</div>'+
       '<div class="stepper"><button class="btn" data-tk="cminus" aria-label="Weniger Exemplare">\u2212</button><span class="val" id="tkCnt">'+tk.copies+'</span><button class="btn" data-tk="cplus" aria-label="Mehr Exemplare">+</button></div>'+
       '<div class="togs"><button class="tog" data-tk="conn">Drucker verbinden</button><button class="tog" data-tk="connall">Alle Geräte zeigen</button></div>'+
-      '<label style="width:100%;font-size:14px;color:var(--muted)">Befehlsfolge<select id="tkProf"><option value="A">Profil A</option><option value="B">Profil B</option></select></label>'+
+      '<label style="width:100%;font-size:14px;color:var(--muted)">Befehlsfolge<select id="tkProf"><option value="A">Profil A: Tempo, Dichte, Abschluss</option><option value="B">Profil B: nur das Bild</option><option value="C">Profil C: Phomemo Stil mit Start und Abschluss</option><option value="D">Profil D: Phomemo Stil mit Papiervorschub</option></select></label>'+
       '<button class="btn primary" style="width:100%" data-tk="print">Drucken</button>'+
       '<div class="tk-st" id="tkSt" aria-live="polite">'+(pChr?'Drucker verbunden.':'Drucker noch nicht verbunden.')+'</div></div>';
     showCanvasImg();
@@ -866,31 +866,41 @@ h2{font-size:17px;margin:16px 0 8px;font-weight:700;}
     return out;
   }
   async function pSend(bytes,chunk){
+    var withResp=!!pChr.properties.write;
     for(var i=0;i<bytes.length;i+=chunk){
       var part=bytes.slice(i,i+chunk);
-      if(pChr.properties.writeWithoutResponse)await pChr.writeValueWithoutResponse(part);
-      else await pChr.writeValue(part);
-      if((i/chunk)%8===7)await new Promise(function(r){setTimeout(r,12);});
+      if(withResp)await pChr.writeValue(part);
+      else await pChr.writeValueWithoutResponse(part);
+      await new Promise(function(r){setTimeout(r,withResp?2:10);});
     }
+  }
+  var PRE={A:[0x1b,0x4e,0x0d,0x05,0x1b,0x4e,0x04,0x08],B:[],C:[0x1b,0x40,0x1b,0x61,0x01,0x1f,0x11,0x02,0x04],D:[0x1b,0x40,0x1b,0x61,0x01,0x1f,0x11,0x02,0x04]};
+  var POST={A:[0x1f,0xf0,0x05,0x00,0x1f,0xf0,0x03,0x00],B:[],C:[0x1f,0xf0,0x05,0x00,0x1f,0xf0,0x03,0x00],D:[0x1b,0x64,0x03]};
+  function buildJob(c,prof){
+    var bpl=c.width/8,H=c.height,img=toBytes(c),parts=[PRE[prof]||[]],y,h;
+    for(y=0;y<H;y+=256){
+      h=Math.min(256,H-y);
+      parts.push([0x1d,0x76,0x30,0x00,bpl&255,bpl>>8,h&255,h>>8]);
+      parts.push(img.subarray(y*bpl,(y+h)*bpl));
+    }
+    parts.push(POST[prof]||[]);
+    var total=0;parts.forEach(function(p){total+=p.length;});
+    var out=new Uint8Array(total),pos=0;
+    parts.forEach(function(p){out.set(p,pos);pos+=p.length;});
+    return out;
   }
   async function tkPrint(){
     if(!tk.canvas)return;
     if(!pChr){tkSay('Erst den Drucker verbinden.');return;}
-    var prof=byId('tkProf').value,c=tk.canvas,bpl=c.width/8,H=c.height;
-    var img=toBytes(c);
-    var head=[0x1d,0x76,0x30,0x00,bpl&255,bpl>>8,H&255,H>>8];
-    var pre=prof==='A'?[0x1b,0x4e,0x0d,0x05,0x1b,0x4e,0x04,0x08]:[];
-    var post=prof==='A'?[0x1f,0xf0,0x05,0x00,0x1f,0xf0,0x03,0x00]:[];
-    var all=new Uint8Array(pre.length+head.length+img.length+post.length);
-    all.set(pre,0);all.set(head,pre.length);all.set(img,pre.length+head.length);all.set(post,pre.length+head.length+img.length);
+    var prof=byId('tkProf').value,job=buildJob(tk.canvas,prof);
     try{
       for(var n=0;n<tk.copies;n++){
-        tkSay('Drucke '+(n+1)+' von '+tk.copies+' …');
-        try{await pSend(all,100);}catch(e1){await pSend(all,20);}
-        if(n<tk.copies-1)await new Promise(function(r){setTimeout(r,500);});
+        tkAdd('Sende Profil '+prof+', Exemplar '+(n+1)+' von '+tk.copies+' ('+job.length+' Byte) …');
+        try{await pSend(job,100);}catch(e1){tkAdd('  Blockgröße 100 ging nicht ('+errText(e1)+'), versuche 20 …');await pSend(job,20);}
+        if(n<tk.copies-1)await new Promise(function(r){setTimeout(r,600);});
       }
-      tkSay('Fertig gesendet. Kommt nichts heraus, probiere das andere Profil.');
-    }catch(e){tkSay('Fehler beim Drucken: '+(e&&e.message?e.message:e));}
+      tkAdd('Fertig gesendet. Kommt nichts heraus, nimm das nächste Profil.');
+    }catch(e){tkAdd('Fehler beim Drucken: '+errText(e));}
   }
 
   sheet.addEventListener('click',function(e){
